@@ -41,125 +41,6 @@ using System.Reflection;
 
 namespace System.IO {
 
-        [Flags]
-        enum EventFlags : ushort {
-                Add         = 0x0001,
-                Delete      = 0x0002,
-                Enable      = 0x0004,
-                Disable     = 0x0008,
-                OneShot     = 0x0010,
-                Clear       = 0x0020,
-                Receipt     = 0x0040,
-                Dispatch    = 0x0080,
-
-                Flag0       = 0x1000,
-                Flag1       = 0x2000,
-                SystemFlags = unchecked (0xf000),
-                        
-                // Return values.
-                EOF         = 0x8000,
-                Error       = 0x4000,
-        }
-        
-        enum EventFilter : short {
-                Read = -1,
-                Write = -2,
-                Aio = -3,
-                Vnode = -4,
-                Proc = -5,
-                Signal = -6,
-                Timer = -7,
-                MachPort = -8,
-                FS = -9,
-                User = -10,
-                VM = -11
-        }
-
-	[Flags]
-	enum FilterFlags : uint {
-                ReadPoll          = EventFlags.Flag0,
-                ReadOutOfBand     = EventFlags.Flag1,
-                ReadLowWaterMark  = 0x00000001,
-
-                WriteLowWaterMark = ReadLowWaterMark,
-
-                NoteTrigger       = 0x01000000,
-                NoteFFNop         = 0x00000000,
-                NoteFFAnd         = 0x40000000,
-                NoteFFOr          = 0x80000000,
-                NoteFFCopy        = 0xc0000000,
-                NoteFFCtrlMask    = 0xc0000000,
-                NoteFFlagsMask    = 0x00ffffff,
-                                  
-                VNodeDelete       = 0x00000001,
-                VNodeWrite        = 0x00000002,
-                VNodeExtend       = 0x00000004,
-                VNodeAttrib       = 0x00000008,
-                VNodeLink         = 0x00000010,
-                VNodeRename       = 0x00000020,
-                VNodeRevoke       = 0x00000040,
-                VNodeNone         = 0x00000080,
-                                  
-                ProcExit          = 0x80000000,
-                ProcFork          = 0x40000000,
-                ProcExec          = 0x20000000,
-                ProcReap          = 0x10000000,
-                ProcSignal        = 0x08000000,
-                ProcExitStatus    = 0x04000000,
-                ProcResourceEnd   = 0x02000000,
-
-                // iOS only
-                ProcAppactive     = 0x00800000,
-                ProcAppBackground = 0x00400000,
-                ProcAppNonUI      = 0x00200000,
-                ProcAppInactive   = 0x00100000,
-                ProcAppAllStates  = 0x00f00000,
-
-                // Masks
-                ProcPDataMask     = 0x000fffff,
-                ProcControlMask   = 0xfff00000,
-
-                VMPressure        = 0x80000000,
-                VMPressureTerminate = 0x40000000,
-                VMPressureSuddenTerminate = 0x20000000,
-                VMError           = 0x10000000,
-                TimerSeconds      =    0x00000001,
-                TimerMicroSeconds =   0x00000002,
-                TimerNanoSeconds  =   0x00000004,
-                TimerAbsolute     =   0x00000008,
-        }
-
-	[StructLayout(LayoutKind.Sequential)]
-	struct kevent : IDisposable {
-		public UIntPtr ident;
-		public EventFilter filter;
-		public EventFlags flags;
-		public FilterFlags fflags;
-		public IntPtr data;
-		public IntPtr udata;
-
-		public void Dispose ()
-		{
-			if (udata != IntPtr.Zero)
-				Marshal.FreeHGlobal (udata);
-		}
-
-
-	}
-
-	[StructLayout(LayoutKind.Sequential)]
-	struct timespec {
-		public IntPtr tv_sec;
-		public IntPtr tv_nsec;
-	}
-
-	class PathData
-	{
-		public string Path;
-		public bool IsDirectory;
-		public int Fd;
-	}
-
 	class KqueueMonitor : IDisposable
 	{
 		static bool initialized;
@@ -314,7 +195,7 @@ namespace System.IO {
 			Scan (fullPathNoLastSlash, false, ref initialFds);
 
 			var immediate_timeout = new timespec { tv_sec = (IntPtr)0, tv_nsec = (IntPtr)0 };
-			var eventBuffer = new kevent[0]; // we don't want to take any events from the queue at this point
+			var eventBuffer = new kevent_struct[0]; // we don't want to take any events from the queue at this point
 			var changes = CreateChangeList (ref initialFds);
 
 			int numEvents = kevent (conn, changes, changes.Length, eventBuffer, eventBuffer.Length, ref immediate_timeout);
@@ -325,14 +206,14 @@ namespace System.IO {
 			}
 		}
 
-		kevent[] CreateChangeList (ref List<int> FdList)
+		kevent_struct[] CreateChangeList (ref List<int> FdList)
 		{
 			if (FdList.Count == 0)
 				return emptyEventList;
 
-			var changes = new List<kevent> ();
+			var changes = new List<kevent_struct> ();
 			foreach (int fd in FdList) {
-				var change = new kevent {
+				var change = new kevent_struct {
 
 					ident = (UIntPtr)fd,
 					filter = EventFilter.Vnode,
@@ -354,7 +235,7 @@ namespace System.IO {
 
 		void Monitor ()
 		{
-			var eventBuffer = new kevent[32];
+			var eventBuffer = new kevent_struct[32];
 			var newFds = new List<int> ();
 			List<PathData> removeQueue = new List<PathData> ();
 			List<string> rescanQueue = new List<string> ();
@@ -366,7 +247,7 @@ namespace System.IO {
 
 				// We are calling an icall, so have to marshal manually
 				// Marshal in
-				int ksize = Marshal.SizeOf<kevent> ();
+				int ksize = Marshal.SizeOf<kevent_struct> ();
 				var changesNative = Marshal.AllocHGlobal (ksize * changes.Length);
 				for (int i = 0; i < changes.Length; ++i)
 					Marshal.StructureToPtr (changes [i], changesNative + (i * ksize), false);
@@ -377,7 +258,7 @@ namespace System.IO {
 				// Marshal out
 				Marshal.FreeHGlobal (changesNative);
 				for (int i = 0; i < numEvents; ++i)
-					eventBuffer [i] = Marshal.PtrToStructure<kevent> (eventBufferNative + (i * ksize));
+					eventBuffer [i] = Marshal.PtrToStructure<kevent_struct> (eventBufferNative + (i * ksize));
 				Marshal.FreeHGlobal (eventBufferNative);
 
 				if (numEvents == -1) {
@@ -646,7 +527,7 @@ namespace System.IO {
 		const int O_EVTONLY = 0x8000;
 		const int F_GETPATH = 50;
 		const int __DARWIN_MAXPATHLEN = 1024;
-		static readonly kevent[] emptyEventList = new System.IO.kevent[0];
+		static readonly kevent_struct[] emptyEventList = new kevent_struct[0];
 		int maxFds = Int32.MaxValue;
 
 		FileSystemWatcher fsw;
@@ -664,6 +545,127 @@ namespace System.IO {
 		readonly Dictionary<int, PathData> fdsDict = new Dictionary<int, PathData> ();
 		string fixupPath = null;
 		string fullPathNoLastSlash = null;
+		
+		#region Imported system structures and constants
+		[Flags]
+		enum EventFlags : ushort {
+		        Add         = 0x0001,
+		        Delete      = 0x0002,
+		        Enable      = 0x0004,
+		        Disable     = 0x0008,
+		        OneShot     = 0x0010,
+		        Clear       = 0x0020,
+		        Receipt     = 0x0040,
+		        Dispatch    = 0x0080,
+
+		        Flag0       = 0x1000,
+		        Flag1       = 0x2000,
+		        SystemFlags = unchecked (0xf000),
+		                
+		        // Return values.
+		        EOF         = 0x8000,
+		        Error       = 0x4000,
+		}
+		
+		enum EventFilter : short {
+		        Read = -1,
+		        Write = -2,
+		        Aio = -3,
+		        Vnode = -4,
+		        Proc = -5,
+		        Signal = -6,
+		        Timer = -7,
+		        MachPort = -8,
+		        FS = -9,
+		        User = -10,
+		        VM = -11
+		}
+
+		[Flags]
+		enum FilterFlags : uint {
+		        ReadPoll          = EventFlags.Flag0,
+		        ReadOutOfBand     = EventFlags.Flag1,
+		        ReadLowWaterMark  = 0x00000001,
+
+		        WriteLowWaterMark = ReadLowWaterMark,
+
+		        NoteTrigger       = 0x01000000,
+		        NoteFFNop         = 0x00000000,
+		        NoteFFAnd         = 0x40000000,
+		        NoteFFOr          = 0x80000000,
+		        NoteFFCopy        = 0xc0000000,
+		        NoteFFCtrlMask    = 0xc0000000,
+		        NoteFFlagsMask    = 0x00ffffff,
+		                          
+		        VNodeDelete       = 0x00000001,
+		        VNodeWrite        = 0x00000002,
+		        VNodeExtend       = 0x00000004,
+		        VNodeAttrib       = 0x00000008,
+		        VNodeLink         = 0x00000010,
+		        VNodeRename       = 0x00000020,
+		        VNodeRevoke       = 0x00000040,
+		        VNodeNone         = 0x00000080,
+		                          
+		        ProcExit          = 0x80000000,
+		        ProcFork          = 0x40000000,
+		        ProcExec          = 0x20000000,
+		        ProcReap          = 0x10000000,
+		        ProcSignal        = 0x08000000,
+		        ProcExitStatus    = 0x04000000,
+		        ProcResourceEnd   = 0x02000000,
+
+		        // iOS only
+		        ProcAppactive     = 0x00800000,
+		        ProcAppBackground = 0x00400000,
+		        ProcAppNonUI      = 0x00200000,
+		        ProcAppInactive   = 0x00100000,
+		        ProcAppAllStates  = 0x00f00000,
+
+		        // Masks
+		        ProcPDataMask     = 0x000fffff,
+		        ProcControlMask   = 0xfff00000,
+
+		        VMPressure        = 0x80000000,
+		        VMPressureTerminate = 0x40000000,
+		        VMPressureSuddenTerminate = 0x20000000,
+		        VMError           = 0x10000000,
+		        TimerSeconds      =    0x00000001,
+		        TimerMicroSeconds =   0x00000002,
+		        TimerNanoSeconds  =   0x00000004,
+		        TimerAbsolute     =   0x00000008,
+		}
+
+		[StructLayout(LayoutKind.Sequential)]
+		struct kevent_struct : IDisposable {
+			public UIntPtr ident;
+			public EventFilter filter;
+			public EventFlags flags;
+			public FilterFlags fflags;
+			public IntPtr data;
+			public IntPtr udata;
+
+			public void Dispose ()
+			{
+				if (udata != IntPtr.Zero)
+					Marshal.FreeHGlobal (udata);
+			}
+
+
+		}
+
+		[StructLayout(LayoutKind.Sequential)]
+		struct timespec {
+			public IntPtr tv_sec;
+			public IntPtr tv_nsec;
+		}
+
+		class PathData
+		{
+			public string Path;
+			public bool IsDirectory;
+			public int Fd;
+		}
+		#endregion
 
 		[DllImport ("libc", EntryPoint="fcntl", CharSet=CharSet.Auto, SetLastError=true)]
 		static extern int fcntl (int file_names_by_descriptor, int cmd, StringBuilder sb);
@@ -678,7 +680,7 @@ namespace System.IO {
 		extern static int kqueue ();
 
 		[DllImport ("libc")]
-		extern static int kevent (int kq, [In]kevent[] ev, int nchanges, [Out]kevent[] evtlist, int nevents, [In] ref timespec time);
+		extern static int kevent (int kq, [In]kevent_struct[] ev, int nchanges, [Out]kevent_struct[] evtlist, int nevents, [In] ref timespec time);
 
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		extern static int kevent_notimeout (ref int kq, IntPtr ev, int nchanges, IntPtr evtlist, int nevents);

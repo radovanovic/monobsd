@@ -55,6 +55,10 @@ static int (*FAMNextEvent) (gpointer, gpointer);
 gint
 ves_icall_System_IO_FSW_SupportsFSW (void)
 {
+#if defined(__FreeBSD__)
+	return 6;
+#endif
+
 #if HAVE_KQUEUE
 	return 3;
 #else

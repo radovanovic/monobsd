@@ -846,6 +846,7 @@
     <Compile Include="System.IO\InvalidDataException.cs" />
     <Compile Include="System.IO\IODescriptionAttribute.cs" />
     <Compile Include="System.IO\KeventWatcher.cs" />
+    <Compile Include="System.IO\FreeBSDWatcher.cs" />
     <Compile Include="System.IO\NotifyFilters.cs" />
     <Compile Include="System.IO\NullFileWatcher.cs" />
     <Compile Include="System.IO\RenamedEventArgs.cs" />
@@ -1198,7 +1199,8 @@
     <Compile Include="System\UriHelper.cs" />
     <Compile Include="System\UriParseComponents.cs" />
     <Compile Include="System\UriParser.cs" />
-    <Compile Include="System\UriTypeConverter.cs" />  </ItemGroup>
+    <Compile Include="System\UriTypeConverter.cs" />
+  </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

@@ -102,7 +102,7 @@ mono_lls_filter_accept_all (gpointer elem)
 		MonoLinkedListSet *list__ = (list); \
 		MonoThreadHazardPointers *hp__ = mono_hazard_pointer_get (); \
 		gboolean progress__ = FALSE; \
-		uintptr_t hkey__; \
+		uintptr_t hkey__ = 0; \
 		gboolean restart__; \
 		do { \
 			restart__ = FALSE; \

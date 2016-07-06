@@ -135,6 +135,9 @@ namespace System.IO {
 				case 5: // inotify
 					ok = InotifyWatcher.GetInstance (out watcher, true);
 					break;
+				case 6:	// FreeBSD
+					ok = FreeBSDWatcher.GetInstance (out watcher);
+					break;
 				}
 
 				if (mode == 0 || !ok) {
@@ -457,6 +460,35 @@ namespace System.IO {
 			OnError (args);
 		}
 
+		internal void DispatchEvent(FileSystemEventArgs evnt) 
+		{
+			if (waiting) {
+				lastData = new WaitForChangedResult ();
+			}
+
+			lastData.ChangeType = evnt.ChangeType;
+
+			switch (evnt.ChangeType) {
+			case WatcherChangeTypes.Changed:
+				lastData.Name = evnt.Name;
+				OnChanged(evnt);
+				break;
+			case WatcherChangeTypes.Deleted:
+				lastData.Name = evnt.Name;
+				OnDeleted(evnt);
+				break;
+			case WatcherChangeTypes.Created:
+				lastData.Name = evnt.Name;
+				OnCreated(evnt);
+				break;
+			case WatcherChangeTypes.Renamed:
+				lastData.Name = evnt.Name;
+				lastData.OldName = ((RenamedEventArgs)evnt).OldName;
+				OnRenamed((RenamedEventArgs)evnt);
+				break;
+			}
+		}
+
 		internal void DispatchEvents (FileAction act, string filename, ref RenamedEventArgs renamed)
 		{
 			if (waiting) {
@@ -537,6 +569,7 @@ namespace System.IO {
 		/* 3 -> Kevent		*/
 		/* 4 -> gamin		*/
 		/* 5 -> inotify		*/
+		/* 6 -> FreeBSD		*/
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		static extern int InternalSupportsFSW ();
 	}
