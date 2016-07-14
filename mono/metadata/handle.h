@@ -45,7 +45,7 @@ struct _MonoHandleStorage {
 #else
 
 static inline void
-mono_handle_check_in_critical_section ()
+mono_handle_check_in_critical_section (void)
 {
 	MONO_REQ_GC_UNSAFE_MODE;
 }
