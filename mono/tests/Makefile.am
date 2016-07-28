@@ -429,7 +429,8 @@ BASE_TEST_CS_SRC=		\
 	pinvoke_ppci.cs	\
 	pinvoke_ppcf.cs	\
 	pinvoke_ppcd.cs \
-	fs_watcher.cs
+	fs_watcher.cs	\
+	process_name.cs
 
 TEST_CS_SRC_DIST=	\
 	$(BASE_TEST_CS_SRC)	\
