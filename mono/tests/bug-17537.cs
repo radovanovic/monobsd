@@ -18,7 +18,7 @@ public class Test {
 			var name = "bug-17537-helper.exe";
 			Console.WriteLine ("Launching subprocess: {0}", name);
 			var p = new Process();
-			p.StartInfo.FileName = Path.Combine (AppDomain.CurrentDomain.BaseDirectory + name);
+			p.StartInfo.FileName = Path.Combine (AppDomain.CurrentDomain.BaseDirectory, name);
 			p.StartInfo.UseShellExecute = false;
 
 			var result = p.Start();
